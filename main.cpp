@@ -20,6 +20,20 @@ int main() {
   const PointerType *ptrType = cellType->getPointerTo();
   Constant *one = ConstantInt::get(cellType, 1);
 
+  // Called by brainfuck code.
+  FunctionType *PutFunctionType = FunctionType::get(
+      Type::getVoidTy(Context) /* return type */,
+      std::vector<const Type *>(1, cellType) /* argument types */,
+      false /* var args */);
+  Function *PutFunction = Function::Create(PutFunctionType,
+      Function::ExternalLinkage, "brainfuck_put", &MainModule);
+  FunctionType *GetFunctionType = FunctionType::get(
+      cellType /* return type */,
+      std::vector<const Type *>() /* argument types */,
+      false /* var args */);
+  Function *GetFunction = Function::Create(GetFunctionType,
+      Function::ExternalLinkage, "brainfuck_get", &MainModule);
+
   // Global data for a brainfuck program.
   ArrayType *dataType = ArrayType::get(cellType, DATA_SIZE);
   GlobalVariable *data = new GlobalVariable(
@@ -42,27 +56,35 @@ int main() {
   int c;
   Value *value;
   while ((c = getchar()) != EOF) {
-  	switch (c) {
-  		case '>':
+    switch (c) {
+      case '>':
         dataPtr = Builder.CreateConstGEP1_32(dataPtr, 1, PTR_NAME);
-  		  break;
-  		case '<':
+        break;
+      case '<':
         dataPtr = Builder.CreateConstGEP1_32(dataPtr, -1, PTR_NAME);
-  		  break;
-  		case '+':
-  		  value = Builder.CreateLoad(dataPtr);
-  		  value = Builder.CreateAdd(value, one);
-  		  Builder.CreateStore(value, dataPtr);
-  		  break;
-  		case '-':
-  		  value = Builder.CreateLoad(dataPtr);
-  		  value = Builder.CreateSub(value, one);
-  		  Builder.CreateStore(value, dataPtr);
-  		  break;
+        break;
+      case '+':
+        value = Builder.CreateLoad(dataPtr);
+        value = Builder.CreateAdd(value, one);
+        Builder.CreateStore(value, dataPtr);
+        break;
+      case '-':
+        value = Builder.CreateLoad(dataPtr);
+        value = Builder.CreateSub(value, one);
+        Builder.CreateStore(value, dataPtr);
+        break;
+      case '.':
+        value = Builder.CreateLoad(dataPtr);
+        Builder.CreateCall(PutFunction, value);
+        break;
+      case ',':
+        value = Builder.CreateCall(GetFunction);
+        Builder.CreateStore(value, dataPtr);
+        break;
     }
   }
 
   // Finish off brainfuck_main and dump.
   Builder.CreateRetVoid();
-	MainModule.dump();
+  MainModule.dump();
 }
