@@ -1,0 +1,2 @@
+#!/bin/sh
+./llvm-brainfuck | llvm-as | opt -instcombine -print-module | llc
