@@ -3,6 +3,7 @@
 #include <llvm/LLVMContext.h>
 #include <llvm/Module.h>
 #include <llvm/Support/IRBuilder.h>
+#include <llvm/Support/raw_ostream.h>
 
 using namespace llvm;
 
@@ -10,37 +11,37 @@ static const uint64_t DATA_SIZE = 30000;
 static const char *DATA_NAME = "data";
 static const char *PTR_NAME = "ptr";
 
-static LLVMContext &Context = getGlobalContext();
-static Module MainModule("brainfuck program", Context);
-static IRBuilder<> Builder(Context);
-
 int main() {
+  // LLVM context.
+  LLVMContext &Context = getGlobalContext();
+  Module MainModule("brainfuck program", Context);
+  IRBuilder<> Builder(Context);
+
   // Useful constants.
-  const IntegerType *cellType = Type::getInt8Ty(Context);
-  const PointerType *ptrType = cellType->getPointerTo();
-  Constant *one = ConstantInt::get(cellType, 1);
+  const IntegerType *CellType = Type::getInt8Ty(Context);
+  Constant *One = ConstantInt::get(CellType, 1);
 
   // Called by brainfuck code.
   FunctionType *PutFunctionType = FunctionType::get(
       Type::getVoidTy(Context) /* return type */,
-      std::vector<const Type *>(1, cellType) /* argument types */,
+      std::vector<const Type *>(1, CellType) /* argument types */,
       false /* var args */);
   Function *PutFunction = Function::Create(PutFunctionType,
       Function::ExternalLinkage, "brainfuck_put", &MainModule);
   FunctionType *GetFunctionType = FunctionType::get(
-      cellType /* return type */,
+      CellType /* return type */,
       std::vector<const Type *>() /* argument types */,
       false /* var args */);
   Function *GetFunction = Function::Create(GetFunctionType,
       Function::ExternalLinkage, "brainfuck_get", &MainModule);
 
   // Global data for a brainfuck program.
-  ArrayType *dataType = ArrayType::get(cellType, DATA_SIZE);
-  GlobalVariable *data = new GlobalVariable(
-      MainModule, dataType, false /* constant */,
-      GlobalVariable::InternalLinkage, Constant::getNullValue(dataType),
+  ArrayType *DataType = ArrayType::get(CellType, DATA_SIZE);
+  GlobalVariable *Data = new GlobalVariable(
+      MainModule, DataType, false /* constant */,
+      GlobalVariable::InternalLinkage, Constant::getNullValue(DataType),
       DATA_NAME);
-  Value *dataPtr = Builder.CreateConstInBoundsGEP2_32(data, 0, 0, PTR_NAME);
+  Value *DataPtr = Builder.CreateConstInBoundsGEP2_32(Data, 0, 0, PTR_NAME);
 
   // Function signature: void brainfuck_main().
   FunctionType *MainFunctionType = FunctionType::get(
@@ -54,37 +55,37 @@ int main() {
 
   // Code generation.
   int c;
-  Value *value;
+  Value *Value;
   while ((c = getchar()) != EOF) {
     switch (c) {
       case '>':
-        dataPtr = Builder.CreateConstGEP1_32(dataPtr, 1, PTR_NAME);
+        DataPtr = Builder.CreateConstGEP1_32(DataPtr, 1, PTR_NAME);
         break;
       case '<':
-        dataPtr = Builder.CreateConstGEP1_32(dataPtr, -1, PTR_NAME);
+        DataPtr = Builder.CreateConstGEP1_32(DataPtr, -1, PTR_NAME);
         break;
       case '+':
-        value = Builder.CreateLoad(dataPtr);
-        value = Builder.CreateAdd(value, one);
-        Builder.CreateStore(value, dataPtr);
+        Value = Builder.CreateLoad(DataPtr);
+        Value = Builder.CreateAdd(Value, One);
+        Builder.CreateStore(Value, DataPtr);
         break;
       case '-':
-        value = Builder.CreateLoad(dataPtr);
-        value = Builder.CreateSub(value, one);
-        Builder.CreateStore(value, dataPtr);
+        Value = Builder.CreateLoad(DataPtr);
+        Value = Builder.CreateSub(Value, One);
+        Builder.CreateStore(Value, DataPtr);
         break;
       case '.':
-        value = Builder.CreateLoad(dataPtr);
-        Builder.CreateCall(PutFunction, value);
+        Value = Builder.CreateLoad(DataPtr);
+        Builder.CreateCall(PutFunction, Value);
         break;
       case ',':
-        value = Builder.CreateCall(GetFunction);
-        Builder.CreateStore(value, dataPtr);
+        Value = Builder.CreateCall(GetFunction);
+        Builder.CreateStore(Value, DataPtr);
         break;
     }
   }
 
   // Finish off brainfuck_main and dump.
   Builder.CreateRetVoid();
-  MainModule.dump();
+  MainModule.print(outs(), NULL /* assembly annotation writer */);
 }

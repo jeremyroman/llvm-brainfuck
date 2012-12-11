@@ -1,3 +1,4 @@
 llvm-brainfuck
 *.o
+*.a
 *.swp
