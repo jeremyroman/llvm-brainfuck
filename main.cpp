@@ -2,9 +2,9 @@
 #include <cstdio>
 #include <stack>
 
-#include <llvm/LLVMContext.h>
-#include <llvm/Module.h>
-#include <llvm/Support/IRBuilder.h>
+#include <llvm/IR/LLVMContext.h>
+#include <llvm/IR/Module.h>
+#include <llvm/IR/IRBuilder.h>
 #include <llvm/Support/raw_ostream.h>
 
 using namespace llvm;
@@ -25,19 +25,19 @@ int main() {
   IRBuilder<> Builder(Context);
 
   // Some useful constants.
-  const IntegerType *CellType = Type::getInt8Ty(Context);
+  Type *CellType = Type::getInt8Ty(Context);
   Constant *One = ConstantInt::get(CellType, 1);
 
   // Function prototypes for the shim.
   FunctionType *PutFunctionType = FunctionType::get(
       Type::getVoidTy(Context) /* return type */,
-      std::vector<const Type *>(1, CellType) /* argument types */,
+      std::vector<Type *>(1, CellType) /* argument types */,
       false /* var args */);
   Function *PutFunction = Function::Create(PutFunctionType,
       Function::ExternalLinkage, "brainfuck_put", &MainModule);
   FunctionType *GetFunctionType = FunctionType::get(
       CellType /* return type */,
-      std::vector<const Type *>() /* argument types */,
+      std::vector<Type *>() /* argument types */,
       false /* var args */);
   Function *GetFunction = Function::Create(GetFunctionType,
       Function::ExternalLinkage, "brainfuck_get", &MainModule);
@@ -53,7 +53,7 @@ int main() {
   // Main function definition.
   FunctionType *MainFunctionType = FunctionType::get(
       Type::getVoidTy(Context) /* return type */,
-      std::vector<const Type *>() /* argument types */,
+      std::vector<Type *>() /* argument types */,
       false /* var args */);
   Function *MainFunction = Function::Create(MainFunctionType,
       Function::ExternalLinkage, "brainfuck_main", &MainModule);
@@ -105,12 +105,14 @@ int main() {
 
         // Define the pointer after the loop.
         Builder.SetInsertPoint(ThisLoop.Exit);
-        ThisLoop.DataPtrExit = Builder.CreatePHI(DataPtr->getType(), PTR_NAME);
+        ThisLoop.DataPtrExit = Builder.CreatePHI(DataPtr->getType(), 2,
+            PTR_NAME);
         ThisLoop.DataPtrExit->addIncoming(DataPtr, ThisLoop.Entry);
 
         // Define the pointer within the loop.
         Builder.SetInsertPoint(ThisLoop.Body);
-        ThisLoop.DataPtrBody = Builder.CreatePHI(DataPtr->getType(), PTR_NAME);
+        ThisLoop.DataPtrBody = Builder.CreatePHI(DataPtr->getType(), 2,
+            PTR_NAME);
         ThisLoop.DataPtrBody->addIncoming(DataPtr, ThisLoop.Entry);
 
         // Continue generating code within the loop.
